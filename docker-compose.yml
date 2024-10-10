@@ -1,10 +1,19 @@
 ---
 
+volumes:
+  weaviate_data: {}
+
+networks:
+  verba_rag:
+
 services:
   verba:
+    container_name: verba_main
     build:
       context: ./
       dockerfile: Dockerfile
+    networks:
+      - verba_rag
     ports:
       - 8000:8000
     environment:
@@ -31,6 +40,7 @@ services:
       start_period: 10s
 
   weaviate:
+    container_name: weaviate_database
     command:
       - --host
       - 0.0.0.0
@@ -39,6 +49,8 @@ services:
       - --scheme
       - http
     image: semitechnologies/weaviate:1.25.10
+    networks:
+      - verba_rag
     ports:
       - 8080:8080
       - 3000:8080
@@ -59,7 +71,22 @@ services:
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
       ENABLE_MODULES: 'e'
       CLUSTER_HOSTNAME: 'node1'
+  
+  unstructured:
+    container_name: unstructured_api
+    image: downloads.unstructured.io/unstructured-io/unstructured-api:latest
+    networks:
+      - verba_rag
+    ports:
+      - 9500:8000
+    restart: on-failure:0
+    healthcheck:
+      test: curl --fail --silent --show-error --request POST http://localhost:9500/general/v0/general || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    environment:
+      - UNSTRUCTURED_API_KEY=$UNSTRUCTURED_API_KEY
 
-volumes:
-  weaviate_data: {}
 ...
